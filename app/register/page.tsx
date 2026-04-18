@@ -33,9 +33,9 @@ export default function RegisterPage() {
       {/* Left — branding panel */}
       <div className="hidden lg:flex flex-col justify-between border-r border-border px-14 py-14 bg-foreground text-background">
         <div>
-          <div className="site-title" style={{ color: "var(--background)" }}>
+          <Link href="/" className="site-title" style={{ color: "var(--background)", textDecoration: "none" }}>
             Global<br />Assets
-          </div>
+          </Link>
         </div>
 
         <div className="flex flex-col gap-6">
@@ -64,7 +64,7 @@ export default function RegisterPage() {
       {/* Right — form panel */}
       <div className="flex flex-col justify-between px-10 py-12 lg:px-20">
         <div className="lg:hidden mb-10">
-          <div className="text-2xl font-bold uppercase tracking-tight">Global Assets</div>
+          <Link href="/" className="text-2xl font-bold uppercase tracking-tight" style={{ textDecoration: "none", color: "inherit" }}>Global Assets</Link>
         </div>
 
         <div className="flex-1 flex flex-col justify-center max-w-sm w-full mx-auto">

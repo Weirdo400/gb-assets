@@ -66,6 +66,10 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   const loadData = useCallback(async () => {
     if (!user || !profile) return;
 
+    // Admin impersonation — load a different user's data
+    const impersonateUid = typeof window !== "undefined" ? localStorage.getItem("gb_impersonate_uid") : null;
+    const effectiveUid = impersonateUid || user.uid;
+
     if (isDemoMode()) {
       setState({
         totalBalance: DEMO_TOTAL_BALANCE,
@@ -90,25 +94,25 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
 
     // Load investments
     const invSnap = await getDocs(
-      query(collection(db, "investments"), where("uid", "==", user.uid))
+      query(collection(db, "investments"), where("uid", "==", effectiveUid))
     );
     const investments = invSnap.docs.map(d => ({ id: d.id, ...d.data() } as Investment));
 
     // Load transactions
     const txSnap = await getDocs(
-      query(collection(db, "transactions"), where("uid", "==", user.uid), orderBy("createdAt", "desc"))
+      query(collection(db, "transactions"), where("uid", "==", effectiveUid), orderBy("createdAt", "desc"))
     );
     const transactions = txSnap.docs.map(d => ({ id: d.id, ...d.data() } as Transaction));
 
     // Load watchlist
     const wlSnap = await getDocs(
-      query(collection(db, "watchlist"), where("uid", "==", user.uid))
+      query(collection(db, "watchlist"), where("uid", "==", effectiveUid))
     );
     const watchlist = wlSnap.docs.map(d => d.data() as WatchlistItem);
 
     // Load unread alerts count
     const alertSnap = await getDocs(
-      query(collection(db, "alerts"), where("uid", "==", user.uid), where("read", "==", false))
+      query(collection(db, "alerts"), where("uid", "==", effectiveUid), where("read", "==", false))
     );
     const unreadAlerts = alertSnap.size;
 

@@ -12,6 +12,12 @@ const ADMIN_NAV = [
   { href: "/admin/deposits", label: "Deposits" },
   { href: "/admin/withdrawals", label: "Withdrawals" },
   { href: "/admin/kyc", label: "KYC" },
+  { href: "/admin/balances", label: "Balances" },
+  { href: "/admin/trades", label: "Trades" },
+  { href: "/admin/alerts", label: "Alerts" },
+  { href: "/admin/email", label: "Email" },
+  { href: "/admin/activity", label: "Activity" },
+  { href: "/admin/impersonate", label: "Impersonate" },
   { href: "/admin/plans", label: "Plans" },
   { href: "/admin/settings", label: "Settings" },
 ];
