@@ -46,7 +46,7 @@ export default function Header() {
 
   return (
     <header className="border-b border-border">
-      <div className="px-10 pt-8 pb-5">
+      <div className="px-4 pt-5 pb-4 md:px-10 md:pt-8 md:pb-5">
         <div className="flex items-start justify-between mb-5">
           <Link href="/dashboard" className="site-title" style={{ textDecoration: "none", color: "inherit" }}>
             Global<br />Assets
