@@ -3,7 +3,6 @@ export const dynamic = "force-dynamic";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import DashboardShell from "@/components/layout/DashboardShell";
 import { usePortfolio } from "@/context/PortfolioContext";
-import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { fmtCurrency, fmtDateTime } from "@/lib/utils";
 import { ASSETS } from "@/lib/types";
@@ -23,11 +22,10 @@ export default function DashboardPage() {
 }
 
 function Dashboard() {
-  const { profile } = useAuth();
   const {
-    totalBalance, availableBalance, investedFunds,
+    totalBalance, availableBalance,
     todayChange, todayChangePercent,
-    totalReturn, totalReturnPercent,
+    totalReturn,
     positions, transactions, portfolioHistory,
     buyShares, sellShares, refreshData,
   } = usePortfolio();
@@ -35,7 +33,6 @@ function Dashboard() {
   const [selectedTicker, setSelectedTicker] = useState("AAPL");
   const [orderType, setOrderType] = useState<"buy" | "sell">("buy");
   const [qty, setQty] = useState("");
-  const [execType, setExecType] = useState("Market Price");
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [flashClass, setFlashClass] = useState("");
@@ -337,8 +334,7 @@ function Dashboard() {
             <label className="metric-label">Order Type</label>
             <select
               className="gb-select"
-              value={execType}
-              onChange={e => setExecType(e.target.value)}
+              defaultValue="Market Price"
             >
               <option>Market Price</option>
               <option>Limit Order</option>
