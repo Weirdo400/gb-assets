@@ -40,6 +40,7 @@ export default function Header() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loadingAlerts, setLoadingAlerts] = useState(false);
   const bellRef = useRef<HTMLDivElement>(null);
+  const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({});
 
   useEffect(() => {
     const stored = localStorage.getItem("gb-theme");
@@ -80,7 +81,20 @@ export default function Header() {
   }, [user]);
 
   const toggleAlerts = () => {
-    if (!alertsOpen) loadAlerts();
+    if (!alertsOpen) {
+      loadAlerts();
+      if (bellRef.current) {
+        const rect = bellRef.current.getBoundingClientRect();
+        const width = Math.min(320, window.innerWidth - 32);
+        const right = Math.max(16, window.innerWidth - rect.right);
+        setPopoverStyle({
+          position: "fixed",
+          top: rect.bottom + 8,
+          right,
+          width,
+        });
+      }
+    }
     setAlertsOpen(o => !o);
   };
 
@@ -138,7 +152,7 @@ export default function Header() {
               </button>
 
               {alertsOpen && (
-                <div className="absolute right-0 top-full mt-1 w-80 bg-background border border-border z-50 shadow-lg">
+                <div className="bg-background border border-border z-50 shadow-lg" style={popoverStyle}>
                   {/* Tab header */}
                   <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
                     <span className="text-[10px] font-bold uppercase tracking-widest">Notifications</span>
