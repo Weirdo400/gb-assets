@@ -329,8 +329,8 @@ function Dashboard() {
             )}
           </div>
 
-          {/* Order type */}
-          <div className="flex flex-col gap-2">
+          {/* Order type — mobile only (limit/stop not yet implemented) */}
+          <div className="md:hidden flex flex-col gap-2">
             <label className="metric-label">Order Type</label>
             <select
               className="gb-select"

@@ -51,7 +51,7 @@ export default function HomePage() {
   if (loading || user) return null;
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-foreground overflow-x-hidden">
+    <div className="home-bg min-h-screen flex flex-col text-foreground overflow-x-hidden">
 
       {/* Top bar */}
       <div className="px-6 md:px-12 py-2 border-b border-border flex items-center justify-between">

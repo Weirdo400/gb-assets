@@ -285,6 +285,43 @@
 .text-up   { color: var(--color-up); }
 .text-down { color: var(--color-down); }
 
+/* ── Home page background ── */
+.home-bg {
+  background-image:
+    linear-gradient(oklch(1 0 0 / 0.78), oklch(1 0 0 / 0.78)),
+    url('/home-bg.jpg');
+  background-size: auto, cover;
+  background-position: center, center center;
+  background-color: var(--background);
+}
+.dark .home-bg {
+  background-image:
+    linear-gradient(oklch(0.145 0 0 / 0.75), oklch(0.145 0 0 / 0.75)),
+    url('/home-bg.jpg');
+  background-size: auto, cover;
+  background-position: center, center center;
+}
+
+/* ── Shell background: photo + vignette + left accent strip ── */
+.shell-bg {
+  background-image:
+    radial-gradient(ellipse 160% 80% at 50% 0%, transparent 50%, oklch(0 0 0 / 0.06) 100%),
+    linear-gradient(oklch(1 0 0 / 0.76), oklch(1 0 0 / 0.76)),
+    url('/dashboard-bg.jpg');
+  background-size: auto, auto, cover;
+  background-position: center, center, center center;
+  background-color: var(--background);
+  border-left: 2px solid var(--color-up);
+}
+.dark .shell-bg {
+  background-image:
+    radial-gradient(ellipse 160% 80% at 50% 0%, transparent 40%, oklch(0.10 0.05 142 / 0.45) 100%),
+    linear-gradient(oklch(0.145 0 0 / 0.72), oklch(0.145 0 0 / 0.72)),
+    url('/dashboard-bg.jpg');
+  background-size: auto, auto, cover;
+  background-position: center, center, center center;
+}
+
 /* ── Live price tick flash ── */
 @keyframes flash-up {
   0%   { background: oklch(0.50 0.14 142 / 0.18); }
