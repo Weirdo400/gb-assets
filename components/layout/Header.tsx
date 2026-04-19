@@ -92,7 +92,9 @@ export default function Header() {
     if (!bellRef.current) return {};
     const rect = bellRef.current.getBoundingClientRect();
     const width = Math.min(320, window.innerWidth - 32);
-    const right = Math.max(16, window.innerWidth - rect.right);
+    const naturalRight = window.innerWidth - rect.right;
+    // cap right so left edge stays ≥16px from viewport left
+    const right = Math.min(Math.max(16, naturalRight), window.innerWidth - width - 16);
     return { position: "fixed", top: rect.bottom + 8, right, width, zIndex: 9999 };
   };
 
