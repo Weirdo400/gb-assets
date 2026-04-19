@@ -1,4 +1,4 @@
-import { UserProfile, Position, Transaction, WatchlistItem } from "./types";
+import { UserProfile, Position, Transaction, WatchlistItem, Alert } from "./types";
 import { generateHistory } from "./utils";
 
 export const DEMO_KEY = "gb_demo_mode";
@@ -82,3 +82,12 @@ export const DEMO_WATCHLIST: WatchlistItem[] = [
 
 export const DEMO_TOTAL_BALANCE = DEMO_PROFILE.availableBalance + 133872.55;
 export const DEMO_HISTORY = generateHistory(DEMO_TOTAL_BALANCE);
+
+export const DEMO_ALERTS: Alert[] = [
+  { id: "da1", uid: "demo-user-001", title: "Portfolio up +1.2% today",     message: "Your portfolio gained $1,842.33 today. NVDA and BTC were top performers.", type: "success", read: false, fromAdmin: false, createdAt: d(0) },
+  { id: "da2", uid: "demo-user-001", title: "Deposit confirmed",             message: "Your deposit of $10,000.00 has been approved and credited to your account.", type: "success", read: false, fromAdmin: true,  createdAt: d(5) },
+  { id: "da3", uid: "demo-user-001", title: "KYC verification approved",     message: "Your identity has been verified. You now have full access to all platform features.", type: "info", read: true, fromAdmin: true, createdAt: d(12) },
+  { id: "da4", uid: "demo-user-001", title: "BTC volatility alert",          message: "Bitcoin has moved more than 5% in the last 24 hours. Monitor your position closely.", type: "warning", read: true, fromAdmin: false, createdAt: d(18) },
+  { id: "da5", uid: "demo-user-001", title: "Withdrawal processed",          message: "Your withdrawal of $5,000.00 has been processed and sent to your bank account.", type: "info", read: true, fromAdmin: true, createdAt: d(22) },
+  { id: "da6", uid: "demo-user-001", title: "Market closed — weekend hours", message: "Equity markets are closed. Crypto trading remains available 24/7.", type: "info", read: true, fromAdmin: false, createdAt: d(30) },
+];

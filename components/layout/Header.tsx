@@ -5,10 +5,12 @@ import { useAuth } from "@/context/AuthContext";
 import { usePortfolio } from "@/context/PortfolioContext";
 import { Bell, Moon, Sun, Check, CheckCheck, ExternalLink } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { collection, query, where, getDocs, updateDoc, doc, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { Alert } from "@/lib/types";
 import { fmtDateTime } from "@/lib/utils";
+import { isDemoMode, DEMO_ALERTS } from "@/lib/demo-data";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Portfolio" },
@@ -34,15 +36,17 @@ export default function Header() {
   const { unreadAlerts, refreshData } = usePortfolio();
   const [dark, setDark] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   // Alerts popover
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loadingAlerts, setLoadingAlerts] = useState(false);
-  const bellRef = useRef<HTMLDivElement>(null);
+  const bellRef = useRef<HTMLButtonElement>(null);
   const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({});
 
   useEffect(() => {
+    setMounted(true);
     const stored = localStorage.getItem("gb-theme");
     if (stored === "dark") {
       setDark(true);
@@ -50,29 +54,33 @@ export default function Header() {
     }
   }, []);
 
-  // Close popover on outside click
+  // Close popover on outside click or scroll
   useEffect(() => {
     if (!alertsOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (bellRef.current && !bellRef.current.contains(e.target as Node)) {
+    const close = (e: MouseEvent) => {
+      if (bellRef.current && !bellRef.current.closest("[data-alerts-root]")?.contains(e.target as Node)) {
         setAlertsOpen(false);
       }
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    const closeScroll = () => setAlertsOpen(false);
+    document.addEventListener("mousedown", close);
+    window.addEventListener("scroll", closeScroll, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", close);
+      window.removeEventListener("scroll", closeScroll);
+    };
   }, [alertsOpen]);
 
   const loadAlerts = useCallback(async () => {
-    if (!user) return;
     setLoadingAlerts(true);
     try {
+      if (isDemoMode()) {
+        setAlerts(DEMO_ALERTS);
+        return;
+      }
+      if (!user) return;
       const snap = await getDocs(
-        query(
-          collection(db, "alerts"),
-          where("uid", "==", user.uid),
-          orderBy("createdAt", "desc"),
-          limit(8),
-        )
+        query(collection(db, "alerts"), where("uid", "==", user.uid), orderBy("createdAt", "desc"), limit(8))
       );
       setAlerts(snap.docs.map(d => ({ id: d.id, ...d.data() } as Alert)));
     } finally {
@@ -80,35 +88,33 @@ export default function Header() {
     }
   }, [user]);
 
+  const calcPopoverStyle = (): React.CSSProperties => {
+    if (!bellRef.current) return {};
+    const rect = bellRef.current.getBoundingClientRect();
+    const width = Math.min(320, window.innerWidth - 32);
+    const right = Math.max(16, window.innerWidth - rect.right);
+    return { position: "fixed", top: rect.bottom + 8, right, width, zIndex: 9999 };
+  };
+
   const toggleAlerts = () => {
     if (!alertsOpen) {
       loadAlerts();
-      if (bellRef.current) {
-        const rect = bellRef.current.getBoundingClientRect();
-        const width = Math.min(320, window.innerWidth - 32);
-        const right = Math.max(16, window.innerWidth - rect.right);
-        setPopoverStyle({
-          position: "fixed",
-          top: rect.bottom + 8,
-          right,
-          width,
-        });
-      }
+      setPopoverStyle(calcPopoverStyle());
     }
     setAlertsOpen(o => !o);
   };
 
   const markRead = async (alertId: string) => {
-    await updateDoc(doc(db, "alerts", alertId), { read: true });
+    if (!isDemoMode()) await updateDoc(doc(db, "alerts", alertId), { read: true });
     setAlerts(prev => prev.map(a => a.id === alertId ? { ...a, read: true } : a));
-    refreshData();
+    if (!isDemoMode()) refreshData();
   };
 
   const markAllRead = async () => {
     const unread = alerts.filter(a => !a.read);
-    await Promise.all(unread.map(a => updateDoc(doc(db, "alerts", a.id), { read: true })));
+    if (!isDemoMode()) await Promise.all(unread.map(a => updateDoc(doc(db, "alerts", a.id), { read: true })));
     setAlerts(prev => prev.map(a => ({ ...a, read: true })));
-    refreshData();
+    if (!isDemoMode()) refreshData();
   };
 
   const toggleTheme = () => {
@@ -123,6 +129,56 @@ export default function Header() {
     router.push("/login");
   };
 
+  const popoverPanel = alertsOpen && mounted ? (
+    <div
+      className="bg-background border border-border shadow-lg"
+      style={popoverStyle}
+      data-alerts-panel
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
+        <span className="text-[10px] font-bold uppercase tracking-widest">Notifications</span>
+        <div className="flex items-center gap-3">
+          {alerts.some(a => !a.read) && (
+            <button onClick={markAllRead} className="metric-label hover:opacity-70 flex items-center gap-1" style={{ color: "inherit" }}>
+              <CheckCheck size={10} /><span>Mark all read</span>
+            </button>
+          )}
+          <Link href="/account#alerts" onClick={() => setAlertsOpen(false)} className="metric-label flex items-center gap-1 hover:opacity-70" style={{ color: "inherit" }}>
+            <ExternalLink size={10} /><span>All</span>
+          </Link>
+        </div>
+      </div>
+      {/* List */}
+      <div className="max-h-72 overflow-y-auto">
+        {loadingAlerts ? (
+          <div className="px-4 py-6 metric-label text-center">Loading…</div>
+        ) : alerts.length === 0 ? (
+          <div className="px-4 py-6 metric-label text-center">No notifications</div>
+        ) : (
+          alerts.map(alert => (
+            <div
+              key={alert.id}
+              className="px-4 py-3 border-b border-border last:border-b-0 flex gap-3 items-start"
+              style={{ background: alert.read ? undefined : "hsl(var(--muted) / 0.5)" }}
+            >
+              <div className="flex-1 min-w-0">
+                <div className={`text-[11px] font-semibold truncate ${ALERT_COLORS[alert.type]}`}>{alert.title}</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5 leading-snug">{alert.message}</div>
+                <div className="metric-label mt-1">{fmtDateTime(alert.createdAt)}</div>
+              </div>
+              {!alert.read && (
+                <button onClick={() => markRead(alert.id)} className="shrink-0 mt-0.5 opacity-50 hover:opacity-100" aria-label="Mark read">
+                  <Check size={11} />
+                </button>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  ) : null;
+
   return (
     <header className="border-b border-border">
       <div className="px-4 pt-5 pb-4 md:px-10 md:pt-8 md:pb-5">
@@ -130,84 +186,26 @@ export default function Header() {
           <Link href="/dashboard" className="site-title" style={{ textDecoration: "none", color: "inherit" }}>
             Global<br />Assets
           </Link>
-          <div className="flex items-center gap-4 mt-1">
+          <div className="flex items-center gap-4 mt-1" data-alerts-root>
             <button onClick={toggleTheme} className="gb-btn" style={{ padding: "8px" }} aria-label="Toggle theme">
               {dark ? <Sun size={14} /> : <Moon size={14} />}
             </button>
 
-            {/* Alerts bell with popover */}
-            <div className="relative" ref={bellRef}>
-              <button
-                onClick={toggleAlerts}
-                className="relative gb-btn"
-                style={{ padding: "8px", border: alertsOpen ? "1px solid var(--foreground)" : undefined }}
-                aria-label="Alerts"
-              >
-                <Bell size={14} />
-                {unreadAlerts > 0 && (
-                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-foreground text-background text-[8px] font-bold flex items-center justify-center">
-                    {unreadAlerts > 9 ? "9+" : unreadAlerts}
-                  </span>
-                )}
-              </button>
-
-              {alertsOpen && (
-                <div className="bg-background border border-border z-50 shadow-lg" style={popoverStyle}>
-                  {/* Tab header */}
-                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
-                    <span className="text-[10px] font-bold uppercase tracking-widest">Notifications</span>
-                    <div className="flex items-center gap-3">
-                      {alerts.some(a => !a.read) && (
-                        <button onClick={markAllRead} className="metric-label hover:text-foreground flex items-center gap-1" style={{ color: "inherit" }}>
-                          <CheckCheck size={10} />
-                          <span>Mark all read</span>
-                        </button>
-                      )}
-                      <Link href="/account#alerts" onClick={() => setAlertsOpen(false)} className="metric-label flex items-center gap-1" style={{ color: "inherit" }}>
-                        <ExternalLink size={10} />
-                        <span>All</span>
-                      </Link>
-                    </div>
-                  </div>
-
-                  {/* Alert list */}
-                  <div className="max-h-72 overflow-y-auto">
-                    {loadingAlerts ? (
-                      <div className="px-4 py-6 metric-label text-center">Loading…</div>
-                    ) : alerts.length === 0 ? (
-                      <div className="px-4 py-6 metric-label text-center">No notifications</div>
-                    ) : (
-                      alerts.map(alert => (
-                        <div
-                          key={alert.id}
-                          className="px-4 py-3 border-b border-border last:border-b-0 flex gap-3 items-start"
-                          style={{ background: alert.read ? undefined : "hsl(var(--muted) / 0.5)" }}
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className={`text-[11px] font-semibold truncate ${ALERT_COLORS[alert.type]}`}>
-                              {alert.title}
-                            </div>
-                            <div className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
-                              {alert.message}
-                            </div>
-                            <div className="metric-label mt-1">{fmtDateTime(alert.createdAt)}</div>
-                          </div>
-                          {!alert.read && (
-                            <button
-                              onClick={() => markRead(alert.id)}
-                              className="shrink-0 mt-0.5 opacity-50 hover:opacity-100"
-                              aria-label="Mark read"
-                            >
-                              <Check size={11} />
-                            </button>
-                          )}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
+            {/* Bell */}
+            <button
+              ref={bellRef}
+              onClick={toggleAlerts}
+              className="relative gb-btn"
+              style={{ padding: "8px", border: alertsOpen ? "1px solid var(--foreground)" : undefined }}
+              aria-label="Alerts"
+            >
+              <Bell size={14} />
+              {unreadAlerts > 0 && (
+                <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-foreground text-background text-[8px] font-bold flex items-center justify-center">
+                  {unreadAlerts > 9 ? "9+" : unreadAlerts}
+                </span>
               )}
-            </div>
+            </button>
 
             {profile?.isAdmin && (
               <Link href="/admin" className="nav-link text-[10px]">Admin</Link>
@@ -224,29 +222,10 @@ export default function Header() {
               aria-expanded={menuOpen}
               aria-label={menuOpen ? "Close menu" : "Open menu"}
             >
-              <svg
-                className="pointer-events-none"
-                width={16}
-                height={16}
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path
-                  d="M4 12L20 12"
-                  className="origin-center -translate-y-[7px] transition-all duration-300 [transition-timing-function:cubic-bezier(.5,.85,.25,1.1)] group-aria-expanded:translate-y-0 group-aria-expanded:rotate-[315deg]"
-                />
-                <path
-                  d="M4 12H20"
-                  className="origin-center transition-all duration-300 [transition-timing-function:cubic-bezier(.5,.85,.25,1.8)] group-aria-expanded:rotate-45"
-                />
-                <path
-                  d="M4 12H20"
-                  className="origin-center translate-y-[7px] transition-all duration-300 [transition-timing-function:cubic-bezier(.5,.85,.25,1.1)] group-aria-expanded:translate-y-0 group-aria-expanded:rotate-[135deg]"
-                />
+              <svg className="pointer-events-none" width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 12L20 12" className="origin-center -translate-y-[7px] transition-all duration-300 [transition-timing-function:cubic-bezier(.5,.85,.25,1.1)] group-aria-expanded:translate-y-0 group-aria-expanded:rotate-[315deg]" />
+                <path d="M4 12H20" className="origin-center transition-all duration-300 [transition-timing-function:cubic-bezier(.5,.85,.25,1.8)] group-aria-expanded:rotate-45" />
+                <path d="M4 12H20" className="origin-center translate-y-[7px] transition-all duration-300 [transition-timing-function:cubic-bezier(.5,.85,.25,1.1)] group-aria-expanded:translate-y-0 group-aria-expanded:rotate-[135deg]" />
               </svg>
             </button>
           </div>
@@ -276,6 +255,9 @@ export default function Header() {
           </Link>
         ))}
       </nav>
+
+      {/* Alerts portal — renders at body level, no clipping possible */}
+      {mounted && createPortal(popoverPanel, document.body)}
     </header>
   );
 }
