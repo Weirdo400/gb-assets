@@ -17,7 +17,7 @@ interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
-  signUp: (email: string, password: string, fullName: string) => Promise<string | null>;
+  signUp: (email: string, password: string, fullName: string, extra?: { username?: string; country?: string }) => Promise<string | null>;
   signIn: (email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -70,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return unsub;
   }, [fetchProfile]);
 
-  const signUp = useCallback(async (email: string, password: string, fullName: string): Promise<string | null> => {
+  const signUp = useCallback(async (email: string, password: string, fullName: string, extra?: { username?: string; country?: string }): Promise<string | null> => {
     try {
       const { user: newUser } = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(newUser, { displayName: fullName });
@@ -78,6 +78,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const profileWrite = setDoc(doc(db, "users", newUser.uid), {
         email,
         fullName,
+        username: extra?.username ?? "",
+        country: extra?.country ?? "",
         availableBalance: 0,
         investedBalance: 0,
         isAdmin: false,

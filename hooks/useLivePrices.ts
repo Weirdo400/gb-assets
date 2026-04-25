@@ -110,6 +110,8 @@ export function useLivePrices(tickers: string[]) {
         }
         return next;
       });
+      // We have live data — mark as connected
+      if (mountedRef.current) setConnected(true);
     } catch {
       // keep existing prices on error
     }

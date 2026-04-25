@@ -117,6 +117,18 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* Hide browser's native credential/password icons so custom toggles aren't overlapped */
+input::-webkit-credentials-auto-fill-button,
+input::-webkit-strong-password-auto-fill-button,
+input::-webkit-contacts-auto-fill-button {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  opacity: 0 !important;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
