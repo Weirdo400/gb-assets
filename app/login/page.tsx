@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { enableDemo } from "@/lib/demo-data";
 import { Eye, EyeOff } from "lucide-react";
 import SnakeLine from "@/components/SnakeLine";
+import LoadingScreen from "@/components/LoadingScreen";
 
 const EMAIL_PROVIDERS = [
   "gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com",
@@ -20,6 +21,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
   const [emailSuggestions, setEmailSuggestions] = useState<string[]>([]);
   const emailRef = useRef<HTMLInputElement>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -59,15 +61,18 @@ export default function LoginPage() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast.error("Please enter a valid email address"); return; }
     setLoading(true);
     const err = await signIn(email, password);
-    setLoading(false);
     if (err) {
+      setLoading(false);
       toast.error(err);
     } else {
+      setSigningIn(true);
       router.push("/dashboard");
     }
   };
 
   return (
+    <>
+    {signingIn && <LoadingScreen message="Signing in…" />}
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
       {/* Left — branding panel */}
       <div className="hidden lg:flex flex-col justify-between border-r border-border px-14 py-14 bg-foreground text-background relative overflow-hidden">
@@ -220,5 +225,6 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }
