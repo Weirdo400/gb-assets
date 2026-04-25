@@ -227,7 +227,7 @@ export default function HomePage() {
           {[
             { stat: "Est. 2019", label: "Years in Operation" },
             { stat: "$500M+",   label: "Assets Under Management" },
-            { stat: "4,000+",  label: "Active Investors" },
+            { stat: "4,000+",  label: "Managed Portfolios" },
             { stat: "12",       label: "Asset Classes Covered" },
           ].map(({ stat, label }) => (
             <div key={label} className="px-8 md:px-10 py-8 flex flex-col gap-1">
