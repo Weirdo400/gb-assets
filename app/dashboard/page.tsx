@@ -3,13 +3,13 @@ export const dynamic = "force-dynamic";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import DashboardShell from "@/components/layout/DashboardShell";
 import { usePortfolio } from "@/context/PortfolioContext";
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { useState } from "react";
 import { fmtCurrency, fmtDateTime } from "@/lib/utils";
-import { ASSETS } from "@/lib/types";
-import { toast } from "sonner";
+import { PLANS } from "@/lib/types";
 import { AreaChart, Area, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { RefreshCw } from "lucide-react";
-import { useLivePrices } from "@/hooks/useLivePrices";
+import Link from "next/link";
 
 export default function DashboardPage() {
   return (
@@ -27,44 +27,11 @@ function Dashboard() {
     todayChange, todayChangePercent,
     totalReturn,
     positions, transactions, portfolioHistory,
-    buyShares, sellShares, refreshData,
+    refreshData,
   } = usePortfolio();
+  const { profile } = useAuth();
 
-  const [selectedTicker, setSelectedTicker] = useState("AAPL");
-  const [orderType, setOrderType] = useState<"buy" | "sell">("buy");
-  const [qty, setQty] = useState("");
-  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [flashClass, setFlashClass] = useState("");
-
-  const { prices: livePrices } = useLivePrices(Object.keys(ASSETS));
-  const asset = ASSETS[selectedTicker];
-  const liveTick = livePrices[selectedTicker];
-  const livePrice = liveTick?.price ?? asset?.price ?? 0;
-  const estimatedTotal = qty ? (parseFloat(qty) || 0) * livePrice : 0;
-
-  // Flash the price box when a live tick arrives
-  const prevUpdatedAt = useRef(liveTick?.updatedAt ?? 0);
-  useEffect(() => {
-    const updated = liveTick?.updatedAt ?? 0;
-    if (updated && updated !== prevUpdatedAt.current) {
-      const cls = livePrice >= (liveTick?.prevPrice ?? livePrice)
-        ? "price-flash-up"
-        : "price-flash-down";
-      setFlashClass(cls);
-      const t = setTimeout(() => setFlashClass(""), 700);
-      prevUpdatedAt.current = updated;
-      return () => clearTimeout(t);
-    }
-  }, [liveTick?.updatedAt, livePrice, liveTick?.prevPrice]);
-
-  // Stable bar chart data — regenerates only when ticker changes
-  const contextBars = useMemo(
-    () => Array.from({ length: 20 }, (_, i) => ({
-      h: Math.max(15, 30 + Math.sin(i * 0.7 + Math.random()) * 20 + Math.random() * 25),
-    })),
-    [selectedTicker],
-  );
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -72,29 +39,11 @@ function Dashboard() {
     setRefreshing(false);
   };
 
-  const handleExecute = async () => {
-    const amount = parseFloat(qty);
-    if (!amount || amount <= 0) { toast.error("Enter a valid quantity"); return; }
-    setLoading(true);
-    const err = orderType === "buy"
-      ? await buyShares(selectedTicker, amount)
-      : await sellShares(selectedTicker, amount);
-    setLoading(false);
-    if (err) {
-      toast.error(err);
-    } else {
-      toast.success(`${orderType === "buy" ? "Bought" : "Sold"} ${amount} ${selectedTicker}`);
-      setQty("");
-    }
-  };
-
   const upChange = (todayChange ?? 0) >= 0;
   const chartStroke = upChange ? "var(--color-up)" : "var(--color-down)";
 
-  // Live tick change display
-  const tickChange = liveTick?.change ?? 0;
-  const tickChangePct = liveTick?.changePercent ?? 0;
-  const tickUp = tickChange >= 0;
+  const tierKey = profile?.tier ?? null;
+  const plan = tierKey ? PLANS[tierKey] : null;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] min-h-[calc(100vh-200px)]">
@@ -196,7 +145,7 @@ function Dashboard() {
             [...positions]
               .sort((a, b) => b.totalValue - a.totalValue)
               .map(pos => (
-                <div key={pos.ticker} onClick={() => setSelectedTicker(pos.ticker)}>
+                <div key={pos.ticker}>
                   {/* Desktop row */}
                   <div
                     className="gb-row hidden md:grid"
@@ -258,118 +207,68 @@ function Dashboard() {
         </div>
       </section>
 
-      {/* Order sidebar */}
+      {/* Your Plan sidebar */}
       <aside className="px-4 py-6 md:px-10 md:py-8 border-t border-border lg:border-t-0">
         <div className="flex flex-col gap-6">
-          <div className="metric-label">Place Order</div>
+          <div className="metric-label">Your Investment Plan</div>
 
-          {/* Buy/Sell toggle */}
-          <div className="flex flex-col gap-2">
-            <label className="metric-label">Transaction Type</label>
-            <div className="grid grid-cols-2 gap-px bg-border border border-border">
-              <button
-                className={`gb-btn ${orderType === "buy" ? "gb-btn-primary" : ""}`}
-                onClick={() => setOrderType("buy")}
-              >
-                Buy
-              </button>
-              <button
-                className={`gb-btn ${orderType === "sell" ? "gb-btn-primary" : ""}`}
-                onClick={() => setOrderType("sell")}
-              >
-                Sell
-              </button>
-            </div>
-          </div>
-
-          {/* Asset selector */}
-          <div className="flex flex-col gap-2">
-            <label className="metric-label">Select Asset</label>
-            <div className="relative">
-              <select
-                className="gb-select"
-                value={selectedTicker}
-                onChange={e => setSelectedTicker(e.target.value)}
-              >
-                {Object.entries(ASSETS).map(([ticker, info]) => (
-                  <option key={ticker} value={ticker}>{ticker} — {info.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Live price with flash + change info */}
-          {asset && (
-            <div className={`border border-border p-3 transition-colors ${flashClass}`}>
-              <div className="metric-label mb-1">Current Price</div>
-              <div className="font-bold tabular text-lg">{fmtCurrency(livePrice)}</div>
-              <div className="flex items-center justify-between mt-1">
-                <span className="metric-label">{asset.sector}</span>
-                <span className={`text-[11px] tabular font-medium ${tickUp ? "text-up" : "text-down"}`}>
-                  {tickUp ? "+" : ""}{tickChange.toFixed(2)} ({tickUp ? "+" : ""}{tickChangePct.toFixed(2)}%)
-                </span>
+          {plan ? (
+            <>
+              {/* Plan badge */}
+              <div className="border border-border p-6" style={{ background: "var(--foreground)", color: "var(--background)" }}>
+                <div className="text-[10px] uppercase tracking-[0.2em] font-semibold mb-2" style={{ opacity: 0.5 }}>
+                  Active Plan
+                </div>
+                <div className="text-2xl font-bold uppercase tracking-tight mb-5">{plan.name}</div>
+                <div className="flex flex-col gap-4">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest font-medium mb-1" style={{ opacity: 0.5 }}>Min. Investment</div>
+                    <div className="tabular font-bold text-[18px]">{fmtCurrency(plan.minDeposit)}</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest font-medium mb-1" style={{ opacity: 0.5 }}>Target Return</div>
+                    <div className="tabular font-bold text-[22px]">Up to {plan.maxReturn}%</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest font-medium mb-1" style={{ opacity: 0.5 }}>Asset Coverage</div>
+                    <div className="text-[12px] font-semibold">All Asset Classes</div>
+                  </div>
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest font-medium mb-1" style={{ opacity: 0.5 }}>Reporting</div>
+                    <div className="text-[12px] font-semibold">{plan.reporting}</div>
+                  </div>
+                </div>
               </div>
+
+              <div className="flex flex-col gap-3 border border-border p-4">
+                {[
+                  "All trades executed by Global Assets",
+                  "Real-time portfolio tracking",
+                  "Admin-managed diversification",
+                  "KYC & compliance included",
+                ].map(f => (
+                  <div key={f} className="flex items-center gap-3">
+                    <span className="metric-label">—</span>
+                    <span className="text-[11px]">{f}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="border border-border p-6 flex flex-col gap-4">
+              <div className="metric-label">No plan assigned yet.</div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Your account officer will assign your investment plan after your KYC and
+                initial deposit are confirmed. Contact support if you have questions.
+              </p>
+              <Link href="/plans" className="gb-btn gb-btn-primary w-full text-center" style={{ textDecoration: "none", padding: "14px", fontSize: "11px", display: "block", textAlign: "center" }}>
+                View Plans →
+              </Link>
             </div>
           )}
 
-          {/* Quantity */}
-          <div className="flex flex-col gap-2">
-            <label className="metric-label">Quantity (Shares)</label>
-            <input
-              className="gb-input"
-              type="number"
-              placeholder="0"
-              min="0"
-              step="0.001"
-              value={qty}
-              onChange={e => setQty(e.target.value)}
-            />
-            {estimatedTotal > 0 && (
-              <span className="metric-label">≈ {fmtCurrency(estimatedTotal)}</span>
-            )}
-          </div>
-
-          {/* Order type — mobile only (limit/stop not yet implemented) */}
-          <div className="md:hidden flex flex-col gap-2">
-            <label className="metric-label">Order Type</label>
-            <select
-              className="gb-select"
-              defaultValue="Market Price"
-            >
-              <option>Market Price</option>
-              <option>Limit Order</option>
-              <option>Stop Loss</option>
-            </select>
-          </div>
-
-          <button
-            className="gb-btn gb-btn-primary w-full"
-            style={{ padding: "18px" }}
-            onClick={handleExecute}
-            disabled={loading}
-          >
-            {loading ? "Processing…" : `Execute ${orderType === "buy" ? "Buy" : "Sell"}`}
-          </button>
-
-          {/* Market context mini chart */}
-          <div className="border-t border-border pt-6">
-            <div className="metric-label mb-3">30D Context — {selectedTicker}</div>
-            <div className="h-20 bg-muted flex items-end p-2 gap-0.5">
-              {contextBars.map((bar, i) => (
-                <div
-                  key={i}
-                  className="bg-foreground flex-1 opacity-70"
-                  style={{ height: `${bar.h}%` }}
-                />
-              ))}
-            </div>
-            <p className="metric-label mt-2" style={{ fontSize: "10px", lineHeight: "1.5" }}>
-              {asset?.name} — {asset?.sector} sector. All orders execute at best available market price.
-            </p>
-          </div>
-
           <div className="metric-label" style={{ fontSize: "10px", lineHeight: "1.5" }}>
-            Brokerage services by Global Assets Clearing Corp. Investments involve risk. (Ref. GB-001)
+            All investments managed by Global Assets Clearing Corp. Investments involve risk. (Ref. GB-001)
           </div>
         </div>
       </aside>

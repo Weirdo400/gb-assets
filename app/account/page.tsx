@@ -132,9 +132,6 @@ function Account() {
                         <span className={`uppercase font-bold text-[11px] ${ALERT_COLORS[alert.type]}`}>
                           {alert.title}
                         </span>
-                        {alert.fromAdmin && (
-                          <span className="metric-label text-[9px] border border-border px-1">Admin</span>
-                        )}
                       </div>
                       <p className="text-[12px] leading-relaxed">{alert.message}</p>
                       <div className="metric-label mt-1">{fmtDateTime(alert.createdAt)}</div>

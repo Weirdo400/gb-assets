@@ -15,7 +15,41 @@ export interface UserProfile {
   overrideInvestedFunds?: number | null;
   overrideTodaysPL?: number | null;
   overrideTotalReturn?: number | null;
+  tier?: "foundation" | "growth" | "elite" | null;
 }
+
+export interface InviteCode {
+  code: string;
+  createdAt: string;
+  createdBy: string;
+  used: boolean;
+  usedBy?: string;
+  usedAt?: string;
+}
+
+export const PLANS = {
+  foundation: {
+    name: "Foundation",
+    minDeposit: 10000,
+    range: "$10,000 – $99,999",
+    maxReturn: 250,
+    reporting: "Monthly",
+  },
+  growth: {
+    name: "Growth",
+    minDeposit: 100000,
+    range: "$100,000 – $249,999",
+    maxReturn: 320,
+    reporting: "Bi-Weekly",
+  },
+  elite: {
+    name: "Elite",
+    minDeposit: 250000,
+    range: "$250,000+",
+    maxReturn: 400,
+    reporting: "Weekly",
+  },
+} as const;
 
 export interface Investment {
   id: string;

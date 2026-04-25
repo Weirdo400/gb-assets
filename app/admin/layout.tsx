@@ -10,7 +10,6 @@ const ADMIN_NAV = [
   { href: "/admin", label: "Overview" },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/deposits", label: "Deposits" },
-  { href: "/admin/withdrawals", label: "Withdrawals" },
   { href: "/admin/kyc", label: "KYC" },
   { href: "/admin/balances", label: "Balances" },
   { href: "/admin/trades", label: "Trades" },
@@ -19,6 +18,7 @@ const ADMIN_NAV = [
   { href: "/admin/activity", label: "Activity" },
   { href: "/admin/impersonate", label: "Impersonate" },
   { href: "/admin/plans", label: "Plans" },
+  { href: "/admin/invite-codes", label: "Invite Codes" },
   { href: "/admin/settings", label: "Settings" },
 ];
 

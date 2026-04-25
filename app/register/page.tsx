@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import Link from "next/link";
 import { toast } from "sonner";
+import { db } from "@/lib/firebase";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 
 export default function RegisterPage() {
   const { signUp } = useAuth();
@@ -12,20 +14,55 @@ export default function RegisterPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password.length < 8) { toast.error("Password must be at least 8 characters"); return; }
+
+    const code = inviteCode.trim().toUpperCase();
+    if (!code) { toast.error("An invite code is required to register"); return; }
+
     setLoading(true);
+
+    // Validate invite code
+    const codeRef = doc(db, "inviteCodes", code);
+    const codeSnap = await getDoc(codeRef);
+    if (!codeSnap.exists()) {
+      toast.error("Invalid invite code");
+      setLoading(false);
+      return;
+    }
+    if (codeSnap.data()?.used) {
+      toast.error("This invite code has already been used");
+      setLoading(false);
+      return;
+    }
+
     const err = await signUp(email, password, fullName);
-    setLoading(false);
     if (err) {
       toast.error(err);
-    } else {
-      toast.success("Account created. Welcome to Global Assets.");
-      router.push("/dashboard");
+      setLoading(false);
+      return;
     }
+
+    // Mark code as used — fetch uid from auth after signup
+    try {
+      const { getAuth } = await import("firebase/auth");
+      const uid = getAuth().currentUser?.uid ?? "unknown";
+      await updateDoc(codeRef, {
+        used: true,
+        usedBy: uid,
+        usedAt: new Date().toISOString(),
+      });
+    } catch {
+      // Non-critical — account was already created
+    }
+
+    toast.success("Account created. Welcome to Global Assets.");
+    setLoading(false);
+    router.push("/dashboard");
   };
 
   return (
@@ -41,12 +78,12 @@ export default function RegisterPage() {
         <div className="flex flex-col gap-6">
           <div className="border-t border-background/20 pt-6">
             <p className="text-sm font-medium leading-relaxed" style={{ color: "var(--background)", opacity: 0.8 }}>
-              "Institutional-grade investment infrastructure — now accessible to every qualified investor."
+              &ldquo;Institutional-grade investment infrastructure — now accessible to every qualified investor.&rdquo;
             </p>
           </div>
           {[
-            { label: "Multi-Asset Trading", body: "Stocks, ETFs, Crypto, Forex — all in one platform." },
-            { label: "Admin-Controlled Portfolios", body: "Managed account options with full transparency." },
+            { label: "Managed Trading", body: "Our experts trade across all asset classes on your behalf." },
+            { label: "Up to 400% Returns", body: "Target returns tiered by investment plan, managed professionally." },
             { label: "KYC & Compliance Ready", body: "Regulated onboarding built into the platform." },
           ].map(({ label, body }) => (
             <div key={label} className="border-t border-background/20 pt-4">
@@ -74,6 +111,24 @@ export default function RegisterPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+            <div className="flex flex-col gap-2">
+              <label className="metric-label">Invite Code</label>
+              <input
+                className="gb-input"
+                type="text"
+                value={inviteCode}
+                onChange={e => setInviteCode(e.target.value)}
+                placeholder="Enter your invite code"
+                required
+                autoComplete="off"
+                style={{ textTransform: "uppercase", letterSpacing: "0.05em" }}
+              />
+              <p className="metric-label text-[10px]">
+                An invite code is required.{" "}
+                <Link href="/plans" style={{ color: "inherit", textDecoration: "underline" }}>View plans →</Link>
+              </p>
+            </div>
+
             <div className="flex flex-col gap-2">
               <label className="metric-label">Full Name</label>
               <input
@@ -117,7 +172,7 @@ export default function RegisterPage() {
               style={{ padding: "16px", fontSize: "12px" }}
               disabled={loading}
             >
-              {loading ? "Creating Account…" : "Create Account →"}
+              {loading ? "Verifying & Creating Account…" : "Create Account →"}
             </button>
           </form>
 

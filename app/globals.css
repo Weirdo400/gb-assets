@@ -302,6 +302,27 @@
   background-position: center, center center;
 }
 
+/* ── Plans page background (fainter than home) ── */
+.plans-bg {
+  background-image:
+    linear-gradient(oklch(1 0 0 / 0.82), oklch(1 0 0 / 0.82)),
+    url('/home-bg.jpg');
+  background-size: auto, cover;
+  background-position: center, center center;
+  background-repeat: no-repeat, no-repeat;
+  background-attachment: fixed, fixed;
+  background-color: var(--background);
+}
+.dark .plans-bg {
+  background-image:
+    linear-gradient(oklch(0.145 0 0 / 0.80), oklch(0.145 0 0 / 0.80)),
+    url('/home-bg.jpg');
+  background-size: auto, cover;
+  background-position: center, center center;
+  background-repeat: no-repeat, no-repeat;
+  background-attachment: fixed, fixed;
+}
+
 /* ── Shell background: photo + vignette + left accent strip ── */
 .shell-bg {
   background-image:

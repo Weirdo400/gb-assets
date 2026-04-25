@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLivePrices } from "@/hooks/useLivePrices";
 import { fmtCurrency } from "@/lib/utils";
+import PublicNav from "@/components/PublicNav";
 
 const STRIP_TICKERS = ["BTC", "ETH", "AAPL", "NVDA", "MSFT", "TSLA", "SOL", "GOOGL", "META", "AMZN", "VOO", "BNB", "JPM", "NFLX", "GS", "AVAX", "SPY", "QQQ"];
 
@@ -23,10 +24,23 @@ export default function HomePage() {
   const demoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { prices, connected } = useLivePrices(STRIP_TICKERS);
   const [time, setTime] = useState("");
+  const [dark, setDark] = useState(false);
 
   useEffect(() => {
     if (!loading && user) router.replace("/dashboard");
   }, [user, loading, router]);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("gb-theme");
+    setDark(stored !== "light");
+  }, []);
+
+  const toggleTheme = () => {
+    const next = !dark;
+    setDark(next);
+    document.documentElement.classList.toggle("dark", next);
+    localStorage.setItem("gb-theme", next ? "dark" : "light");
+  };
 
   useEffect(() => {
     const update = () => setTime(new Date().toLocaleTimeString("en-US", { hour12: false }));
@@ -53,21 +67,21 @@ export default function HomePage() {
   return (
     <div className="home-bg min-h-screen flex flex-col text-foreground overflow-x-hidden">
 
-      {/* Top bar */}
-      <div className="px-6 md:px-12 py-2 border-b border-border flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <span className="metric-label tabular">{time}</span>
-          <span className="metric-label">|</span>
-          <span className="metric-label flex items-center gap-1.5">
-            <span className={`inline-block w-1.5 h-1.5 rounded-full ${connected ? "bg-foreground" : "bg-muted-foreground"}`} style={{ borderRadius: 0 }} />
-            {connected ? "Markets Open" : "Connecting…"}
-          </span>
-        </div>
-        <div className="flex items-center gap-5">
-          <Link href="/login" className="nav-link">Sign In</Link>
-          <Link href="/register" className="gb-btn gb-btn-primary text-[10px] py-1.5 px-4" style={{ textDecoration: "none" }}>Open Account</Link>
-        </div>
-      </div>
+      <PublicNav
+        dark={dark}
+        toggleTheme={toggleTheme}
+        left={
+          <div className="flex items-center gap-3">
+            <span className="font-bold uppercase tracking-tight text-sm" onClick={handleDemoTap} style={{ cursor: "default" }}>Global Assets</span>
+            <span className="metric-label hidden md:inline" style={{ opacity: 0.3 }}>|</span>
+            <span className="metric-label tabular hidden md:inline">{time}</span>
+            <span className="metric-label hidden md:inline">
+              <span className={`inline-block w-1.5 h-1.5 mr-1 ${connected ? "bg-foreground" : "bg-muted-foreground"}`} style={{ borderRadius: 0 }} />
+              {connected ? "Open" : "…"}
+            </span>
+          </div>
+        }
+      />
 
       {/* Scrolling ticker */}
       <div className="border-b border-border overflow-hidden py-2.5 bg-foreground text-background">
@@ -155,6 +169,99 @@ export default function HomePage() {
         </div>
       </div>
 
+      {/* 4-column why us section */}
+      <section className="border-b border-border">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border">
+          {[
+            {
+              icon: (
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+                </svg>
+              ),
+              label: "Managed Investing",
+              desc: "Minimum deposit from $10,000. No hidden fees. Our experts trade on your behalf.",
+            },
+            {
+              icon: (
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
+                  <path d="M7 8h.01M7 11h.01M10 8h7M10 11h7"/>
+                </svg>
+              ),
+              label: "All Asset Classes",
+              desc: "Stocks, ETFs, crypto, forex, and commodities — full global market coverage.",
+            },
+            {
+              icon: (
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 3v18h18"/><path d="M7 16l4-4 4 4 4-7"/>
+                </svg>
+              ),
+              label: "Up to 400% Returns",
+              desc: "Target returns tiered by your investment plan, managed by our professional trading desk.",
+            },
+            {
+              icon: (
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                  <path d="M23 11l-3 3-1.5-1.5"/>
+                </svg>
+              ),
+              label: "Dedicated Account Officer",
+              desc: "Every client is assigned a personal account officer to guide your investment journey.",
+            },
+          ].map(({ icon, label, desc }) => (
+            <div key={label} className="flex flex-col items-start gap-5 px-8 md:px-10 py-12">
+              <div className="opacity-60">{icon}</div>
+              <div>
+                <div className="font-bold uppercase text-[11px] tracking-widest mb-3">{label}</div>
+                <p className="text-[13px] text-muted-foreground leading-relaxed">{desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Stats credibility strip */}
+        <div className="border-t border-border grid grid-cols-2 md:grid-cols-4 divide-x divide-border">
+          {[
+            { stat: "Est. 2019", label: "Years in Operation" },
+            { stat: "$500M+",   label: "Assets Under Management" },
+            { stat: "4,000+",  label: "Active Investors" },
+            { stat: "12",       label: "Asset Classes Covered" },
+          ].map(({ stat, label }) => (
+            <div key={label} className="px-8 md:px-10 py-8 flex flex-col gap-1">
+              <div className="text-2xl font-bold tabular tracking-tight">{stat}</div>
+              <div className="metric-label">{label}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Featured In / Press strip */}
+      <section className="border-b border-border px-6 md:px-12 py-10">
+        <div className="metric-label mb-8 tracking-[0.2em]">As Seen In</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border border border-border">
+          {[
+            { name: "Barron's",    award: "Best Online Brokers",    year: "2022" },
+            { name: "Investopedia", award: "Best Returns Platform", year: "2019" },
+          ].map(({ name, award, year }) => (
+            <div key={name} className="flex flex-col items-center justify-center text-center px-10 py-12 gap-4">
+              <div
+                className="font-bold tracking-tight leading-none"
+                style={{ fontSize: "clamp(28px, 4vw, 48px)", opacity: 0.22 }}
+              >
+                {name}
+              </div>
+              <div className="flex flex-col gap-1">
+                <div className="font-bold uppercase text-[10px] tracking-widest opacity-50">{award}</div>
+                <div className="font-bold text-[13px] tabular opacity-40">{year}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* Two-column feature */}
       <section className="grid grid-cols-1 lg:grid-cols-2 border-b border-border">
         <div className="px-6 md:px-12 py-16 lg:border-r border-border">
@@ -168,10 +275,10 @@ export default function HomePage() {
           </p>
           <div className="flex flex-col gap-0 border border-border">
             {[
-              ["Portfolio Value", "$158,420.88"],
-              ["Today's P/L", "+$1,842.33"],
-              ["Total Return", "+$22,140.88"],
-              ["Open Positions", "8"],
+              ["Portfolio Value", "$1,158,420.88"],
+              ["Today's P/L", "+$12,840.33"],
+              ["Total Return", "+$284,640.88"],
+              ["Open Positions", "24"],
             ].map(([label, val]) => (
               <div key={label} className="flex items-center justify-between px-5 py-3 border-b border-border last:border-0">
                 <span className="metric-label">{label}</span>
@@ -184,16 +291,54 @@ export default function HomePage() {
         <div className="px-6 md:px-12 py-16">
           <div className="metric-label mb-6">Asset Coverage</div>
           <h2 className="text-3xl md:text-4xl font-bold uppercase tracking-tight leading-tight mb-6">
-            50+ Instruments<br />Across 9<br />Asset Classes.
+            Global Markets.<br />Zero Limits.
           </h2>
           <p className="text-muted-foreground text-[13px] leading-relaxed mb-8 max-w-sm">
-            From blue-chip stocks and S&P 500 ETFs to Bitcoin and DeFi tokens —
-            all in one account with live WebSocket pricing.
+            Our traders operate across all major asset classes, 24 hours a day —
+            from blue-chip equities and ETFs to crypto, forex, and commodities.
           </p>
           <div className="flex flex-wrap gap-2">
             {["Technology", "Finance", "Healthcare", "Energy", "Consumer", "Automotive", "Media", "ETFs", "Crypto"].map(s => (
               <div key={s} className="border border-border px-4 py-2 text-[10px] uppercase font-semibold tracking-widest">{s}</div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Investment Plans teaser */}
+      <section className="border-b border-border">
+        <div className="px-6 md:px-12 py-12 border-b border-border flex flex-col md:flex-row items-start md:items-end justify-between gap-4">
+          <div>
+            <div className="metric-label mb-3 tracking-[0.2em]">Investment Plans</div>
+            <h2 className="font-bold uppercase tracking-tight leading-none" style={{ fontSize: "clamp(28px, 5vw, 56px)", letterSpacing: "-0.03em" }}>
+              Three Tiers.<br />One Goal.
+            </h2>
+          </div>
+          <Link href="/plans" className="gb-btn gb-btn-primary" style={{ textDecoration: "none", padding: "14px 28px", fontSize: "11px", whiteSpace: "nowrap" }}>
+            View Plans →
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
+          <div className="px-6 md:px-12 py-8 flex flex-col gap-4">
+            <div className="metric-label">Tier 1</div>
+            <div className="text-xl font-bold uppercase tracking-tight">Foundation</div>
+            <div className="flex flex-col gap-1">
+              <div className="metric-label">Min. Investment</div>
+              <div className="tabular font-bold text-[18px]">$10,000</div>
+              <div className="metric-label text-[10px] opacity-60">$10,000 – $99,999</div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <div className="metric-label">Target Return</div>
+              <div className="tabular font-bold text-[18px] text-up">Up to 250%</div>
+            </div>
+          </div>
+          <div className="px-6 md:px-12 py-8 flex flex-col justify-center gap-3">
+            <p className="text-muted-foreground text-[13px] leading-relaxed max-w-sm">
+              Starting from $10,000 with returns up to 400%. Three tiers available — each with full asset class coverage and professional management.
+            </p>
+            <Link href="/plans" className="gb-btn gb-btn-primary self-start" style={{ textDecoration: "none", padding: "12px 24px", fontSize: "11px" }}>
+              View All Plans →
+            </Link>
           </div>
         </div>
       </section>

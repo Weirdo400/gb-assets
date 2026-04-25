@@ -48,7 +48,7 @@ export default function Header() {
   useEffect(() => {
     setMounted(true);
     const stored = localStorage.getItem("gb-theme");
-    if (stored === "dark") {
+    if (stored !== "light") {
       setDark(true);
       document.documentElement.classList.add("dark");
     }
