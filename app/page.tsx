@@ -380,6 +380,7 @@ export default function HomePage() {
       <footer className="px-6 md:px-12 py-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="font-bold uppercase tracking-tight text-sm">Global Assets</div>
         <div className="flex gap-6 items-center">
+          <Link href="/contact" className="nav-link">Contact Us</Link>
           <Link href="/login" className="nav-link">Client Portal</Link>
           <Link href="/register" className="nav-link">Register</Link>
         </div>
