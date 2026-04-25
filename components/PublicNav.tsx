@@ -63,6 +63,7 @@ const NAV = [
       { label: "Terms & Conditions", href: "/company?tab=Terms+%26+Conditions" },
       { label: "Privacy Policy",     href: "/company?tab=Privacy+Policy" },
       { label: "FAQ",                href: "/company?tab=FAQ" },
+      { label: "Contact Us",         href: "/contact" },
     ],
   },
 ];
