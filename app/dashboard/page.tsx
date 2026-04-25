@@ -83,7 +83,7 @@ function Dashboard() {
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] min-h-[calc(100vh-200px)]">
 
       {/* ── Main ── */}
-      <section className="border-r border-border">
+      <section className="lg:border-r border-border">
 
         {/* Hero metrics */}
         <div className="px-4 py-6 md:px-10 md:py-10 border-b border-border">
@@ -98,20 +98,20 @@ function Dashboard() {
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-6 md:gap-10 mb-8 pt-6 border-t border-border">
+          <div className="grid grid-cols-3 gap-4 md:gap-10 mb-8 pt-6 border-t border-border">
             <div>
-              <div className="metric-label mb-3">Invested</div>
-              <div className="metric-value tabular">{fmtCurrency(investedBalance)}</div>
+              <div className="metric-label mb-2 md:mb-3">Invested</div>
+              <div className="tabular font-bold text-[18px] md:text-[24px] leading-none tracking-tight">{fmtCurrency(investedBalance)}</div>
             </div>
             <div>
-              <div className="metric-label mb-3">Today&apos;s Change</div>
-              <div className={`metric-value tabular ${upChange ? "text-up" : "text-down"}`}>
+              <div className="metric-label mb-2 md:mb-3">Today&apos;s Change</div>
+              <div className={`tabular font-bold text-[18px] md:text-[24px] leading-none tracking-tight ${upChange ? "text-up" : "text-down"}`}>
                 {upChange ? "+" : ""}{todayChangePercent.toFixed(2)}%
               </div>
             </div>
             <div>
-              <div className="metric-label mb-3">Total Return</div>
-              <div className={`metric-value tabular ${totalReturn >= 0 ? "text-up" : "text-down"}`}>
+              <div className="metric-label mb-2 md:mb-3">Total Return</div>
+              <div className={`tabular font-bold text-[18px] md:text-[24px] leading-none tracking-tight ${totalReturn >= 0 ? "text-up" : "text-down"}`}>
                 {totalReturn >= 0 ? "+" : ""}{fmtCurrency(totalReturn)}
               </div>
             </div>
@@ -171,15 +171,15 @@ function Dashboard() {
               {allocation.map(({ label, value, pct }) => (
                 <div key={label}>
                   <div className="flex items-center justify-between mb-2.5">
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0 mr-3">
                       <span
                         className="w-1.5 h-1.5 shrink-0 rounded-full"
                         style={{ background: CLASS_COLORS[label] ?? "var(--foreground)" }}
                       />
-                      <span className="text-[11px] uppercase tracking-[0.1em] font-medium">{label}</span>
+                      <span className="text-[11px] uppercase tracking-[0.1em] font-medium truncate">{label}</span>
                     </div>
-                    <div className="flex items-center gap-5">
-                      <span className="tabular text-[12px]" style={{ color: "var(--muted-foreground)" }}>{fmtCurrency(value)}</span>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="tabular text-[12px] hidden sm:inline" style={{ color: "var(--muted-foreground)" }}>{fmtCurrency(value)}</span>
                       <span className="tabular text-[13px] font-bold w-10 text-right">{pct.toFixed(1)}%</span>
                     </div>
                   </div>
@@ -212,7 +212,7 @@ function Dashboard() {
             <Link href="/history" className="nav-link">View All →</Link>
           </div>
           <div>
-            <div className="gb-row-header grid" style={{ gridTemplateColumns: "60px 1fr 110px" }}>
+            <div className="gb-row-header hidden sm:grid" style={{ gridTemplateColumns: "60px 1fr 110px" }}>
               <div>Type</div>
               <div>Details</div>
               <div className="text-right">Amount</div>
@@ -222,15 +222,31 @@ function Dashboard() {
                 <p className="metric-label">No transactions yet.</p>
               </div>
             ) : transactions.slice(0, 5).map(tx => (
-              <div key={tx.id} className="gb-row grid" style={{ gridTemplateColumns: "60px 1fr 110px", cursor: "default" }}>
-                <div className={`uppercase font-bold text-[11px] ${tx.type === "buy" ? "text-up" : tx.type === "sell" ? "text-down" : ""}`}>
-                  {tx.type}
+              <div key={tx.id} className="gb-row" style={{ cursor: "default" }}>
+                {/* Desktop: 3-col grid */}
+                <div className="hidden sm:grid" style={{ gridTemplateColumns: "60px 1fr 110px" }}>
+                  <div className={`uppercase font-bold text-[11px] ${tx.type === "buy" ? "text-up" : tx.type === "sell" ? "text-down" : ""}`}>
+                    {tx.type}
+                  </div>
+                  <div className="text-[11px]" style={{ color: "var(--muted-foreground)" }}>
+                    {tx.ticker ? `${tx.ticker} — ${tx.assetName}` : "Funds Transfer"}
+                    <span className="ml-2 text-[10px]">{fmtDateTime(tx.createdAt)}</span>
+                  </div>
+                  <div className="text-right tabular text-[12px] font-medium">{fmtCurrency(tx.amount)}</div>
                 </div>
-                <div className="text-[11px] text-muted-foreground">
-                  {tx.ticker ? `${tx.ticker} — ${tx.assetName}` : "Funds Transfer"}
-                  <span className="block md:inline ml-0 md:ml-2 text-[10px]">{fmtDateTime(tx.createdAt)}</span>
+                {/* Mobile: stacked */}
+                <div className="flex items-start justify-between gap-3 sm:hidden">
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <div className={`uppercase font-bold text-[11px] ${tx.type === "buy" ? "text-up" : tx.type === "sell" ? "text-down" : ""}`}>
+                      {tx.type}
+                    </div>
+                    <div className="text-[11px] truncate" style={{ color: "var(--muted-foreground)" }}>
+                      {tx.ticker ? `${tx.ticker} — ${tx.assetName}` : "Funds Transfer"}
+                    </div>
+                    <div className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>{fmtDateTime(tx.createdAt)}</div>
+                  </div>
+                  <div className="tabular text-[13px] font-bold shrink-0">{fmtCurrency(tx.amount)}</div>
                 </div>
-                <div className="text-right tabular text-[12px] font-medium">{fmtCurrency(tx.amount)}</div>
               </div>
             ))}
           </div>

@@ -1,13 +1,14 @@
 "use client";
-import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, ReactNode } from "react";
 import {
   collection, doc, getDocs, addDoc, updateDoc, deleteDoc,
-  query, where, orderBy, serverTimestamp, getDoc, setDoc,
+  query, where, orderBy, getDoc,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { Investment, Transaction, Position, ASSETS, WatchlistItem } from "@/lib/types";
 import { simulatePrice, generateHistory } from "@/lib/utils";
+import { useLivePrices } from "@/hooks/useLivePrices";
 import {
   isDemoMode,
   DEMO_PROFILE, DEMO_POSITIONS, DEMO_TRANSACTIONS, DEMO_WATCHLIST,
@@ -31,6 +32,18 @@ interface PortfolioState {
   unreadAlerts: number;
 }
 
+interface RawData {
+  investments: Investment[];
+  transactions: Transaction[];
+  watchlist: WatchlistItem[];
+  unreadAlerts: number;
+  availableBalance: number;
+  investedBalanceFallback: number;
+  overrideInvestedFunds: number | null;
+  overrideTodaysPL: number | null;
+  overrideTotalReturn: number | null;
+}
+
 interface PortfolioContextType extends PortfolioState {
   buyShares: (ticker: string, qty: number) => Promise<string | null>;
   sellShares: (ticker: string, qty: number) => Promise<string | null>;
@@ -41,37 +54,119 @@ interface PortfolioContextType extends PortfolioState {
   refreshData: () => Promise<void>;
 }
 
+const INITIAL_STATE: PortfolioState = {
+  totalBalance: 0, availableBalance: 0, investedFunds: 0,
+  profitLoss: 0, profitLossPercent: 0, totalReturn: 0, totalReturnPercent: 0,
+  todayChange: 0, todayChangePercent: 0,
+  positions: [], transactions: [], portfolioHistory: [], watchlist: [], unreadAlerts: 0,
+};
+
 const PortfolioContext = createContext<PortfolioContextType | null>(null);
 
 export function PortfolioProvider({ children }: { children: ReactNode }) {
   const { user, profile, refreshProfile } = useAuth();
 
-  const [state, setState] = useState<PortfolioState>({
-    totalBalance: 0,
-    availableBalance: 0,
-    investedFunds: 0,
-    profitLoss: 0,
-    profitLossPercent: 0,
-    totalReturn: 0,
-    totalReturnPercent: 0,
-    todayChange: 0,
-    todayChangePercent: 0,
-    positions: [],
-    transactions: [],
-    portfolioHistory: [],
-    watchlist: [],
-    unreadAlerts: 0,
-  });
+  // Demo mode — bypass all live data logic
+  const [demoState, setDemoState] = useState<PortfolioState | null>(null);
+
+  // Raw Firestore data, kept separate from computed state so live prices can recompute positions
+  const [rawData, setRawData] = useState<RawData | null>(null);
+
+  // Derive tickers from raw investments so useLivePrices can subscribe
+  const tickers = useMemo(
+    () => (rawData?.investments ?? []).filter(i => i.shares > 0).map(i => i.ticker),
+    [rawData]
+  );
+
+  const { prices: livePrices } = useLivePrices(tickers);
+
+  // Recompute positions whenever raw investments or live prices change
+  const positions = useMemo<Position[]>(() => {
+    if (!rawData) return [];
+    return rawData.investments
+      .filter(inv => inv.shares > 0)
+      .map(inv => {
+        const base = ASSETS[inv.ticker]?.price ?? inv.currentPrice;
+        const live = livePrices[inv.ticker];
+        // Use live price when available and non-zero, fall back to simulatePrice
+        const currentPrice =
+          live?.price && live.price > 0
+            ? live.price
+            : simulatePrice(base, Date.now() / 1000 + inv.ticker.charCodeAt(0));
+        const totalValue = currentPrice * inv.shares;
+        const pnl = totalValue - inv.purchasePrice * inv.shares;
+        const pnlPercent = ((currentPrice - inv.purchasePrice) / inv.purchasePrice) * 100;
+        return {
+          ticker: inv.ticker,
+          assetName: inv.assetName,
+          shares: inv.shares,
+          purchasePrice: inv.purchasePrice,
+          currentPrice,
+          totalValue,
+          pnl,
+          pnlPercent,
+          sparkData: Array.from({ length: 12 }, (_, i) =>
+            simulatePrice(inv.purchasePrice, i * 80 + inv.ticker.charCodeAt(0))
+          ),
+        };
+      });
+  }, [rawData, livePrices]);
+
+  // Derive portfolio totals from computed positions + raw data
+  const computedState = useMemo<PortfolioState>(() => {
+    if (!rawData) return INITIAL_STATE;
+
+    const {
+      transactions, watchlist, unreadAlerts, availableBalance,
+      investedBalanceFallback, overrideInvestedFunds, overrideTodaysPL, overrideTotalReturn,
+      investments,
+    } = rawData;
+
+    const computedInvested = positions.reduce((s, p) => s + p.totalValue, 0);
+    const totalCost = investments.reduce((s, i) => s + i.purchasePrice * i.shares, 0);
+    const computedReturn = computedInvested - totalCost;
+
+    const investedFunds =
+      overrideInvestedFunds != null
+        ? overrideInvestedFunds
+        : computedInvested || investedBalanceFallback;
+
+    const totalReturn = overrideTotalReturn != null ? overrideTotalReturn : computedReturn;
+    const profitLoss =
+      overrideTodaysPL != null ? overrideTodaysPL : computedReturn * 0.04;
+
+    const totalBalance = availableBalance + investedFunds;
+    const totalReturnPercent = investedFunds > 0 ? (totalReturn / investedFunds) * 100 : 0;
+    const profitLossPercent = totalBalance > 0 ? (profitLoss / totalBalance) * 100 : 0;
+
+    return {
+      totalBalance,
+      availableBalance,
+      investedFunds,
+      profitLoss,
+      profitLossPercent,
+      totalReturn,
+      totalReturnPercent,
+      todayChange: profitLoss,
+      todayChangePercent: profitLossPercent,
+      positions,
+      transactions,
+      portfolioHistory: generateHistory(totalBalance || 1000),
+      watchlist,
+      unreadAlerts,
+    };
+  }, [rawData, positions]);
+
+  const state = demoState ?? computedState;
 
   const loadData = useCallback(async () => {
     if (!user || !profile) return;
 
-    // Admin impersonation — load a different user's data
     const impersonateUid = typeof window !== "undefined" ? localStorage.getItem("gb_impersonate_uid") : null;
     const effectiveUid = impersonateUid || user.uid;
 
     if (isDemoMode()) {
-      setState({
+      setDemoState({
         totalBalance: DEMO_TOTAL_BALANCE,
         availableBalance: DEMO_PROFILE.availableBalance,
         investedFunds: DEMO_TOTAL_BALANCE - DEMO_PROFILE.availableBalance,
@@ -90,91 +185,23 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const now = Date.now();
+    const [invSnap, txSnap, wlSnap, alertSnap] = await Promise.all([
+      getDocs(query(collection(db, "investments"), where("uid", "==", effectiveUid))),
+      getDocs(query(collection(db, "transactions"), where("uid", "==", effectiveUid), orderBy("createdAt", "desc"))),
+      getDocs(query(collection(db, "watchlist"), where("uid", "==", effectiveUid))),
+      getDocs(query(collection(db, "alerts"), where("uid", "==", effectiveUid), where("read", "==", false))),
+    ]);
 
-    // Load investments
-    const invSnap = await getDocs(
-      query(collection(db, "investments"), where("uid", "==", effectiveUid))
-    );
-    const investments = invSnap.docs.map(d => ({ id: d.id, ...d.data() } as Investment));
-
-    // Load transactions
-    const txSnap = await getDocs(
-      query(collection(db, "transactions"), where("uid", "==", effectiveUid), orderBy("createdAt", "desc"))
-    );
-    const transactions = txSnap.docs.map(d => ({ id: d.id, ...d.data() } as Transaction));
-
-    // Load watchlist
-    const wlSnap = await getDocs(
-      query(collection(db, "watchlist"), where("uid", "==", effectiveUid))
-    );
-    const watchlist = wlSnap.docs.map(d => d.data() as WatchlistItem);
-
-    // Load unread alerts count
-    const alertSnap = await getDocs(
-      query(collection(db, "alerts"), where("uid", "==", effectiveUid), where("read", "==", false))
-    );
-    const unreadAlerts = alertSnap.size;
-
-    // Build positions with simulated price ticks
-    const positions: Position[] = investments
-      .filter(inv => inv.shares > 0)
-      .map(inv => {
-        const base = ASSETS[inv.ticker]?.price ?? inv.currentPrice;
-        const currentPrice = simulatePrice(base, now / 1000 + inv.ticker.charCodeAt(0));
-        const totalValue = currentPrice * inv.shares;
-        const pnl = totalValue - inv.purchasePrice * inv.shares;
-        const pnlPercent = ((currentPrice - inv.purchasePrice) / inv.purchasePrice) * 100;
-        return {
-          ticker: inv.ticker,
-          assetName: inv.assetName,
-          shares: inv.shares,
-          purchasePrice: inv.purchasePrice,
-          currentPrice,
-          totalValue,
-          pnl,
-          pnlPercent,
-          sparkData: Array.from({ length: 12 }, (_, i) =>
-            simulatePrice(inv.purchasePrice, i * 80 + inv.ticker.charCodeAt(0))
-          ),
-        };
-      });
-
-    const availableBalance = profile.availableBalance ?? 0;
-    const computedInvested = positions.reduce((s, p) => s + p.totalValue, 0);
-    const totalCost = investments.reduce((s, i) => s + i.purchasePrice * i.shares, 0);
-    const computedReturn = computedInvested - totalCost;
-
-    const investedFunds = profile.overrideInvestedFunds != null
-      ? profile.overrideInvestedFunds
-      : computedInvested || (profile.investedBalance ?? 0);
-
-    const totalReturn = profile.overrideTotalReturn != null ? profile.overrideTotalReturn : computedReturn;
-    const profitLoss = profile.overrideTodaysPL != null
-      ? profile.overrideTodaysPL
-      : computedReturn * 0.04;
-
-    const totalBalance = availableBalance + investedFunds;
-    const totalReturnPercent = investedFunds > 0 ? (totalReturn / investedFunds) * 100 : 0;
-    const profitLossPercent = totalBalance > 0 ? (profitLoss / totalBalance) * 100 : 0;
-    const todayChange = profitLoss;
-    const todayChangePercent = profitLossPercent;
-
-    setState({
-      totalBalance,
-      availableBalance,
-      investedFunds,
-      profitLoss,
-      profitLossPercent,
-      totalReturn,
-      totalReturnPercent,
-      todayChange,
-      todayChangePercent,
-      positions,
-      transactions,
-      portfolioHistory: generateHistory(totalBalance || 1000),
-      watchlist,
-      unreadAlerts,
+    setRawData({
+      investments: invSnap.docs.map(d => ({ id: d.id, ...d.data() } as Investment)),
+      transactions: txSnap.docs.map(d => ({ id: d.id, ...d.data() } as Transaction)),
+      watchlist: wlSnap.docs.map(d => d.data() as WatchlistItem),
+      unreadAlerts: alertSnap.size,
+      availableBalance: profile.availableBalance ?? 0,
+      investedBalanceFallback: profile.investedBalance ?? 0,
+      overrideInvestedFunds: profile.overrideInvestedFunds ?? null,
+      overrideTodaysPL: profile.overrideTodaysPL ?? null,
+      overrideTotalReturn: profile.overrideTotalReturn ?? null,
     });
   }, [user, profile]);
 
@@ -321,12 +348,11 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     const asset = ASSETS[ticker];
     if (!asset) return;
     const item: WatchlistItem = { uid: user.uid, ticker, assetName: asset.name, addedAt: new Date().toISOString() };
-    // Update local state immediately, never roll back
-    setState(prev => {
+    setRawData(prev => {
+      if (!prev) return prev;
       if (prev.watchlist.some(w => w.ticker === ticker)) return prev;
       return { ...prev, watchlist: [...prev.watchlist, item] };
     });
-    // Best-effort Firestore persist
     try {
       const existing = await getDocs(
         query(collection(db, "watchlist"), where("uid", "==", user.uid), where("ticker", "==", ticker))
@@ -337,9 +363,10 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
 
   const removeFromWatchlist = useCallback(async (ticker: string) => {
     if (!user) return;
-    // Update local state immediately
-    setState(prev => ({ ...prev, watchlist: prev.watchlist.filter(w => w.ticker !== ticker) }));
-    // Best-effort Firestore delete
+    setRawData(prev => {
+      if (!prev) return prev;
+      return { ...prev, watchlist: prev.watchlist.filter(w => w.ticker !== ticker) };
+    });
     try {
       const snap = await getDocs(
         query(collection(db, "watchlist"), where("uid", "==", user.uid), where("ticker", "==", ticker))
