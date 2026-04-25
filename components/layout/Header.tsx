@@ -7,7 +7,6 @@ import { Bell, Moon, Sun, Check, CheckCheck, ExternalLink } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import LoadingScreen from "@/components/LoadingScreen";
 import { collection, query, where, getDocs, updateDoc, doc, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { Alert } from "@/lib/types";
@@ -40,7 +39,6 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
-  const [signingOut, setSigningOut] = useState(false);
 
   // Alerts popover
   const [alertsOpen, setAlertsOpen] = useState(false);
@@ -130,11 +128,9 @@ export default function Header() {
     localStorage.setItem("gb-theme", next ? "dark" : "light");
   };
 
-  const handleSignOut = async () => {
+  const handleSignOut = () => {
     setConfirmSignOut(false);
-    setSigningOut(true);
-    await signOut();
-    router.push("/login");
+    router.push("/signout");
   };
 
   const popoverPanel = alertsOpen && mounted ? (
@@ -267,8 +263,6 @@ export default function Header() {
       {/* Alerts portal — renders at body level, no clipping possible */}
       {mounted && createPortal(popoverPanel, document.body)}
 
-      {/* Sign-out loading screen — portalled to body to escape header stacking context */}
-      {mounted && signingOut && createPortal(<LoadingScreen message="Signing out…" />, document.body)}
 
       {/* Sign-out confirmation */}
       {mounted && createPortal(
@@ -298,7 +292,7 @@ export default function Header() {
                 </div>
                 <div className="px-8 py-6">
                   <p className="text-[13px] leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
-                    Are you sure you want to sign out of your account?
+                    Are you sure you want to log out{profile?.fullName ? `, ${profile.fullName.split(" ")[0]}` : ""}?
                   </p>
                 </div>
                 <div className="px-8 pb-7 flex gap-3">

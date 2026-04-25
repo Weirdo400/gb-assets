@@ -60,7 +60,10 @@ export default function LoginPage() {
     e.preventDefault();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast.error("Please enter a valid email address"); return; }
     setLoading(true);
-    const err = await signIn(email, password);
+    const [err] = await Promise.all([
+      signIn(email, password),
+      new Promise(r => setTimeout(r, 3000)),
+    ]);
     if (err) {
       setLoading(false);
       toast.error(err);

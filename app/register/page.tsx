@@ -72,7 +72,6 @@ export default function RegisterPage() {
   const { signUp } = useAuth();
   const router = useRouter();
   const [inviteCode, setInviteCode] = useState("");
-  const [username, setUsername] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -123,7 +122,7 @@ export default function RegisterPage() {
     }
 
     const fullName = [firstName, lastName].filter(Boolean).join(" ");
-    const err = await signUp(email, password, fullName, { username, country });
+    const err = await signUp(email, password, fullName, { country });
     if (err) {
       toast.error(err);
       setLoading(false);
@@ -222,11 +221,6 @@ export default function RegisterPage() {
                 <button type="button" onClick={() => setAccessTab(true)} style={{ color: "oklch(0.72 0.18 75)", textDecoration: "underline", fontWeight: 700, background: "none", border: "none", cursor: "pointer", font: "inherit", padding: 0 }}>Get access →</button>
               </p>
             </div>
-
-            <input className="gb-input" type="text" value={username} onChange={e => setUsername(e.target.value)}
-              placeholder="Username" required autoComplete="username" style={{ padding: "8px 12px" }} />
-
-            <div className="text-center text-[13px] leading-none tracking-widest" style={{ color: "rgba(255,255,255,0.5)" }}>· · ·</div>
 
             <div className="grid grid-cols-2 gap-2">
               <input className="gb-input" type="text" value={firstName} onChange={e => setFirstName(e.target.value)}
