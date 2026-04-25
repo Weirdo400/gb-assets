@@ -267,8 +267,8 @@ export default function Header() {
       {/* Alerts portal — renders at body level, no clipping possible */}
       {mounted && createPortal(popoverPanel, document.body)}
 
-      {/* Sign-out loading screen */}
-      {signingOut && <LoadingScreen message="Signing out…" />}
+      {/* Sign-out loading screen — portalled to body to escape header stacking context */}
+      {mounted && signingOut && createPortal(<LoadingScreen message="Signing out…" />, document.body)}
 
       {/* Sign-out confirmation */}
       {mounted && createPortal(
